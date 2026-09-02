@@ -104,20 +104,38 @@ Old names (`list`, `remove`, `check-all`, `update-all`, `detect-source`,
 
 ## The interactive console (Linux)
 
-`quiver run` is a real console application, not a menu wrapper: six views, a
-command palette, live operation log, toasts and confirm dialogs — keyboard
-first (`j/k` select, `enter` act, `:` palette, `?` help, `q` quit).
+`quiver run` is a real console application with a small, calm interaction
+model — a title bar of tabs, a contextual status bar, and one command menu
+that holds every action. Nothing hides behind undocumented keys.
 
-- **Dashboard** — counts, storage use, health, recent activity
-- **Apps** — table + detail pane; `l` launch, `u` update, `c` check,
-  `b` rollback, `d` detect source, `x` remove, `a` add, `/` filter
-- **Updates** — statuses sorted with available first; `C` check all,
-  `U` update all, live log tail
-- **Health** — doctor output; `f` fix, `n` clean, `s` scan, `i` import
-- **Activity** — sticky scrollback of every backend event this session
-- **Settings** — edit config values in place, paths, systemd timer
+**Keyboard** (the complete list):
 
-The TUI is intentionally **Linux-only**. The CLI and backend remain portable.
+| key | action |
+| --- | --- |
+| `tab` / `1`-`5` | switch views (click the tabs too) |
+| `j` `k` `↑` `↓` `PgUp` `PgDn` / wheel | move selection |
+| `g` / `G` | first / last row |
+| `enter` | primary action (launch · update · edit — contextual) |
+| `/` | filter the current list |
+| `:` | command menu — every action, grouped and filterable |
+| `?` | help |
+| `r` | reload data |
+| `esc` / `q` | close dialog / quit |
+
+**Mouse is first-class**: tabs, rows, buttons, menu items and even the status
+hints are clickable; hover highlights; the wheel scrolls lists and the
+activity log. Clicking a row only selects it — destructive actions always go
+through an explicit confirm dialog.
+
+**Views**: `apps` (list + detail pane with Launch / Update / Check / Source /
+Rollback / Refresh / Remove buttons), `updates` (statuses sorted, Check-all /
+Update-all), `health` (doctor output + Fix / Scan / Clean / Import),
+`activity` (live backend event log), `settings` (click any config row to edit
+in place, paths, systemd timer).
+
+The theme is midnight-forest: deep charcoal-green surfaces, restrained
+borders, one calm green accent — inspired by btop's furarchy-midnight.
+The TUI is intentionally **Linux-only**; the CLI and backend remain portable.
 
 ## Architecture
 

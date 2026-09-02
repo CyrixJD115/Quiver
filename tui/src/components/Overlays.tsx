@@ -1,183 +1,193 @@
-// Overlays: command palette, help sheet, confirm dialog, toasts.
-// Rendered absolutely over the main area; only one overlay is active at a time.
+// Dialogs: the command menu (OpenCode-style, filter + sections + mouse),
+// help sheet, confirm dialog and toasts. One dialog open at a time.
 
-import { createSignal, For } from "solid-js"
-import { C } from "../theme"
+import { createMemo, createSignal, For } from "solid-js"
+import { useTerminalDimensions } from "@opentui/solid"
+import type { InputRenderable } from "@opentui/core"
+import { C, LEVEL_COLOR } from "../theme"
+import { confirmReq, setConfirmReq, setFocusMode, setOverlay, toasts } from "../state"
+import { Button, Dialog, Span } from "./ui"
 import { onSubmitValue } from "../util"
-import {
-  confirmReq,
-  setConfirmReq,
-  setFocusMode,
-  setOverlay,
-  toasts as toastsSignal,
-  view,
-} from "../state"
 
 export interface Command {
   id: string
+  section: string
   label: string
   detail?: string
+  key?: string
+  danger?: boolean
   run: () => void
 }
 
-const PALETTE_KEYS: Record<string, string> = {
-  "1": "dashboard",
-  "2": "apps",
-  "3": "updates",
-  "4": "health",
-  "5": "activity",
-  "6": "settings",
-}
-
-export function Palette(props: { commands: Command[] }): unknown {
+export function CommandMenu(props: { commands: Command[] }): unknown {
   const [query, setQuery] = createSignal("")
-  const [index, setIndex] = createSignal(0)
-  const filtered = () => {
-    const q = query().toLowerCase()
-    const list = q
-      ? props.commands.filter(
-          (c) => c.label.toLowerCase().includes(q) || (c.detail ?? "").toLowerCase().includes(q),
-        )
-      : props.commands
-    return list
-  }
-  // jump to the target view as the user types a digit
-  const onInput = (value: string) => {
-    setQuery(value)
-    setIndex(0)
-    if (PALETTE_KEYS[value]) {
-      const target = filtered().find((c) => c.id === `go:${PALETTE_KEYS[value]}`)
-      if (target) {
-        close()
-        target.run()
+  const [cursor, setCursor] = createSignal(0)
+  // The key that opened this menu can leak into the freshly focused input
+  // within the same event dispatch - ignore input until the next tick, then
+  // clear whatever leaked into the renderable.
+  const [armed, setArmed] = createSignal(false)
+  let inputRef: InputRenderable | undefined
+  setTimeout(() => {
+    setArmed(true)
+    if (inputRef) inputRef.value = ""
+  }, 30)
+
+  type Entry = { kind: "header"; text: string } | { kind: "cmd"; cmd: Command }
+
+  // One flat column of fixed-height rows: header rows interleaved with
+  // command rows. No nested auto-height sections to miscompute.
+  const entries = createMemo<Entry[]>(() => {
+    const q = query().trim().toLowerCase()
+    const match = (c: Command) =>
+      !q ||
+      c.label.toLowerCase().includes(q) ||
+      c.section.toLowerCase().includes(q) ||
+      (c.detail ?? "").toLowerCase().includes(q)
+    const out: Entry[] = []
+    let section = ""
+    let rowsThisSection = 0
+    for (const cmd of props.commands.filter(match)) {
+      if (cmd.section !== section) {
+        section = cmd.section
+        rowsThisSection = 0
+        out.push({ kind: "header", text: section.toUpperCase() })
       }
+      if (rowsThisSection >= 5) continue
+      rowsThisSection++
+      out.push({ kind: "cmd", cmd })
+      if (out.length > 14) break
     }
-  }
+    return out.slice(0, 15)
+  })
+
+  const flat = createMemo(() =>
+    entries().flatMap((e) => (e.kind === "cmd" ? [e.cmd] : [])),
+  )
+
   const close = () => {
     setOverlay(null)
     setFocusMode("nav")
   }
-  const submit = onSubmitValue((value: string) => {
-    const list = filtered()
-    if (value === "" && list.length) {
-      close()
-      list[0].run()
-      return
-    }
-    const chosen = list[Math.min(index(), list.length - 1)]
-    if (chosen) {
-      close()
-      chosen.run()
-    }
-  })
+  const run = (cmd: Command | undefined) => {
+    if (!cmd) return
+    close()
+    cmd.run()
+  }
+
+  return (
+    <Dialog title=" menu " width={60}>
+      <box height={1} paddingX={1} backgroundColor={C.bg}>
+        <input
+          ref={inputRef}
+          placeholder="Type to filter commands…"
+          onInput={(v: string) => {
+            if (!armed()) return
+            setQuery(v)
+            setCursor(0)
+          }}
+          onSubmit={onSubmitValue(() => run(flat()[cursor()]))}
+          focused={true}
+          backgroundColor={C.bg}
+          textColor={C.fg}
+        />
+      </box>
+      {/* Fixed height keeps every cell position stable while filtering;
+          shrinking lists leave stale cells in the diff otherwise. */}
+      <box flexDirection="column" height={16} overflow="hidden">
+        <For each={entries()}>
+          {(entry) =>
+            entry.kind === "header" ? (
+              <box height={1} paddingX={1} backgroundColor={C.bg}>
+                <text fg={C.dimmer}>{entry.text}</text>
+              </box>
+            ) : (
+              <MenuRow
+                cmd={entry.cmd}
+                active={flat().indexOf(entry.cmd) === cursor()}
+                onSelect={() => run(entry.kind === "cmd" ? entry.cmd : undefined)}
+                onHover={() => {
+                  if (entry.kind === "cmd") setCursor(flat().indexOf(entry.cmd))
+                }}
+              />
+            )
+          }
+        </For>
+      </box>
+      <box height={1} paddingX={1}>
+        <text fg={C.dimmer}>enter run · j/k choose · esc close</text>
+      </box>
+    </Dialog>
+  )
+}
+
+function MenuRow(props: { cmd: Command; active: boolean; onSelect: () => void; onHover: () => void }): unknown {
+  const label = props.cmd.label
+  const keyHint = props.cmd.key
+  const danger = props.cmd.danger
+  const [hover, setHover] = createSignal(false)
   return (
     <box
-      position="absolute"
-      top={1}
-      left={8}
-      right={8}
-      flexDirection="column"
-      borderStyle="single"
-      borderColor={C.accent}
-      backgroundColor={C.panel}
-      maxHeight="70%"
+      flexDirection="row"
+      height={1}
+      paddingX={1}
+      backgroundColor={props.active ? C.greenDeep : hover() ? C.hover : undefined}
+      onMouseOver={() => {
+        setHover(true)
+        props.onHover()
+      }}
+      onMouseOut={() => setHover(false)}
+      onMouseDown={(e: { button: number }) => {
+        if (e.button === 0) props.onSelect()
+      }}
     >
-      <input
-        placeholder="Run a command…"
-        value={query()}
-        onInput={onInput}
-        onSubmit={submit}
-        focused={true}
-        backgroundColor={C.panelAlt}
-        textColor={C.fg}
-      />
-      <box flexDirection="column" maxHeight="60%" overflow="hidden">
-        <For each={filtered().slice(0, 12)}>
-          {(cmd, i) => (
-            <box flexDirection="row" height={1} backgroundColor={i() === index() ? C.selectedAccent : undefined}>
-              <text fg={i() === index() ? C.accent : C.dim}> {i() === index() ? "❯" : " "} </text>
-              <text fg={i() === index() ? C.fg : C.fg} wrapMode="none">
-                {cmd.label}
-              </text>
-              <box flexGrow={1} />
-              <text fg={C.dimmer} wrapMode="none">
-                {truncRight(cmd.detail ?? "")}
+      <text>
+        <Span fg={props.active ? C.greenBright : C.border}>▎</Span>
+        <Span fg={danger ? C.red : props.active ? C.fg : C.dim}> {label}</Span>
+      </text>
+      <box flexGrow={1} />
+      {keyHint ? <text fg={C.dimmer}>[{keyHint}] </text> : null}
+      {props.cmd.detail ? <text fg={C.dimmer}>{props.cmd.detail}</text> : null}
+    </box>
+  )
+}
+
+export function HelpDialog(): unknown {
+  const rows: [string, string][] = [
+    ["tab / 1-5", "switch view (click the tabs too)"],
+    ["j / k  ↑ ↓  wheel", "move selection"],
+    ["g / G", "first / last row"],
+    ["enter", "open · launch · run (contextual)"],
+    ["/", "filter the current list"],
+    [":", "command menu — every action lives here"],
+    ["?", "this help"],
+    ["esc", "close dialog · leave filter"],
+    ["q", "quit"],
+    ["", ""],
+    ["mouse", "click rows, tabs, buttons and hints; wheel scrolls"],
+  ]
+  return (
+    <Dialog title=" help " width={58}>
+      <box padding={1} flexDirection="column">
+        <For each={rows}>
+          {(row) => (
+            <box flexDirection="row" height={1}>
+              <box width={20}>
+                <text fg={C.green} wrapMode="none">
+                  {row[0]}
+                </text>
+              </box>
+              <text fg={C.fg} wrapMode="none">
+                {row[1]}
               </text>
             </box>
           )}
         </For>
       </box>
-      <box height={1} paddingX={1}>
-        <text fg={C.dimmer}>enter run · up/down choose · esc close</text>
-      </box>
-    </box>
+    </Dialog>
   )
 }
 
-function truncRight(s: string): string {
-  return s.length > 34 ? s.slice(0, 33) + "…" : s
-}
-
-export function HelpSheet(): unknown {
-  const rows: [string, string][] = [
-    ["1 … 6", "switch view (dashboard … settings)"],
-    ["tab", "next view"],
-    ["j / k  ↑ / ↓", "move selection"],
-    ["g / G", "jump to first / last row"],
-    ["enter", "open / primary action"],
-    ["/", "filter rows (Apps)"],
-    [":", "command palette"],
-    ["?", "this help"],
-    ["r", "refresh data from the backend"],
-    ["a", "add an AppImage (Apps view)"],
-    ["l", "launch selected app"],
-    ["c / C", "check selected / check all"],
-    ["u / U", "update selected / update all"],
-    ["b", "rollback selected app"],
-    ["d", "detect update source"],
-    ["x", "remove selected app"],
-    ["e", "refresh metadata (self-updated apps)"],
-    ["f", "fix integrations"],
-    ["n", "clean leftovers"],
-    ["i", "import found AppImages"],
-    ["s", "scan system"],
-    ["q", "quit"],
-  ]
-  return (
-    <box
-      position="absolute"
-      top={2}
-      left={10}
-      right={10}
-      borderStyle="single"
-      borderColor={C.mauve}
-      backgroundColor={C.panel}
-      padding={1}
-      flexDirection="column"
-    >
-      <text fg={C.mauve}>KEYBOARD</text>
-      <box height={1} />
-      <For each={rows}>
-        {(row) => (
-          <box flexDirection="row" height={1}>
-            <box width={16}>
-              <text fg={C.accent} wrapMode="none">
-                {row[0]}
-              </text>
-            </box>
-            <text fg={C.fg} wrapMode="none">
-              {row[1]}
-            </text>
-          </box>
-        )}
-      </For>
-      <box height={1} />
-      <text fg={C.dimmer}>view: {view()} — press q, esc or ? to close</text>
-    </box>
-  )
-}
-
-export function ConfirmBox(): unknown {
+export function ConfirmDialog(): unknown {
   const req = confirmReq()
   if (!req) return null
   const accept = () => {
@@ -186,53 +196,42 @@ export function ConfirmBox(): unknown {
   }
   const cancel = () => setConfirmReq(null)
   return (
-    <box
-      position="absolute"
-      top={4}
-      left={14}
-      right={14}
-      borderStyle="single"
-      borderColor={C.yellow}
-      backgroundColor={C.panel}
-      padding={1}
-      flexDirection="column"
-    >
-      <text fg={C.yellow} wrapMode="none">
-        {req.title}
-      </text>
-      {req.detail ? (
-        <box height={1}>
-          <text fg={C.dim} wrapMode="none">
-            {req.detail}
-          </text>
+    <Dialog title=" confirm " width={54}>
+      <box padding={1} flexDirection="column">
+        <text fg={C.fg} wrapMode="none">
+          {req.title}
+        </text>
+        {req.detail ? (
+          <box height={1}>
+            <text fg={C.dim} wrapMode="none">
+              {req.detail}
+            </text>
+          </box>
+        ) : null}
+        <box height={1} />
+        <box flexDirection="row">
+          <Button label="confirm" danger={req.danger ?? false} onClick={accept} />
+          <box width={2} />
+          <Button label="cancel" onClick={cancel} />
         </box>
-      ) : null}
-      <box height={1} />
-      <text fg={C.dim}>y confirm · esc cancel</text>
-    </box>
+      </box>
+    </Dialog>
   )
 }
 
-export function confirm(title: string, detail: string | undefined, action: () => void): void {
-  setConfirmReq({ title, detail, action })
-}
 
-const TOAST_COLOR: Record<string, string> = {
-  ok: C.green,
-  warn: C.yellow,
-  err: C.red,
-  info: C.teal,
+export function confirm(title: string, detail: string | undefined, action: () => void, danger = false): void {
+  setConfirmReq({ title, detail, action, danger })
 }
 
 export function Toasts(): unknown {
-  const toasts = toastsSignal
   return (
     <box position="absolute" bottom={2} right={2} flexDirection="column">
       <For each={toasts().slice(-3)}>
         {(t) => (
-          <box borderStyle="single" borderColor={TOAST_COLOR[t.level]} backgroundColor={C.panel} paddingX={1}>
-            <text fg={TOAST_COLOR[t.level]} wrapMode="none">
-              {t.message.slice(0, 60)}
+          <box borderStyle="rounded" borderColor={LEVEL_COLOR[t.level] ?? C.dim} backgroundColor={C.panel} paddingX={1}>
+            <text fg={LEVEL_COLOR[t.level] ?? C.fg} wrapMode="none">
+              {t.message.slice(0, 64)}
             </text>
           </box>
         )}
@@ -240,4 +239,3 @@ export function Toasts(): unknown {
     </box>
   )
 }
-

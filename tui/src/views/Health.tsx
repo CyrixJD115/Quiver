@@ -1,8 +1,10 @@
-// Health: doctor diagnostics, scan summary, destructive actions with confirm.
+// Health: doctor diagnostics with clear severity colors and action buttons.
+// Destructive actions always confirm first.
 
-import { createResource, onMount } from "solid-js"
-import { getRpc, setView } from "../state"
+import { createResource, onMount, Show } from "solid-js"
+import { getRpc } from "../state"
 import { C } from "../theme"
+import { Button, EmptyState } from "../components/ui"
 import { confirm } from "../components/Overlays"
 import { cleanSystem, fixAll, importApps, scanSystem } from "../actions"
 import { registerController } from "./registry"
@@ -35,62 +37,39 @@ export function HealthView(): unknown {
       move: () => undefined,
       jump: () => undefined,
       primary: () => void refetch(),
-      key: (name) => {
-        switch (name) {
-          case "f":
-            void fixAll()
-            return true
-          case "n":
-            confirm(
-              "Remove leftovers?",
-              "Partial downloads, old backups, stale entries and unreferenced icons.",
-              () => void cleanSystem(),
-            )
-            return true
-          case "s":
-            void scanSystem()
-            return true
-          case "i":
-            confirm(
-              "Import AppImages from collection dirs?",
-              "Adopts everything found without asking.",
-              () => void importApps(),
-            )
-            return true
-          case "R":
-            void refetch()
-            return true
-          default:
-            return false
-        }
-      },
-      hints: () => ["enter rerun doctor", "f fix", "n clean", "s scan", "i import"],
+      hints: () => [{ key: "enter", label: "rerun doctor", run: () => void refetch() }],
     })
   })
 
   const color = (level: string) =>
-    level === "error" ? C.red : level === "warn" ? C.yellow : level === "info" ? C.teal : C.green
+    level === "error" ? C.red : level === "warn" ? C.amber : level === "info" ? C.teal : C.green
+
+  const issues = () => (doctor.latest?.diagnostics ?? []).filter((d) => d.level !== "ok")
 
   return (
-    <box width="100%" height="100%" flexDirection="row">
-      <box flexGrow={3} flexDirection="column" borderStyle="single" borderColor={C.border} paddingX={1}>
-        <box flexDirection="row" height={1}>
-          <text fg={C.accent}>DOCTOR</text>
-          <box flexGrow={1} />
-          <text fg={C.dim}>
+    <box width="100%" height="100%" flexDirection="column">
+      <box flexGrow={1} flexDirection="column" borderStyle="single" borderColor={C.border}>
+        <box height={1} paddingX={1}>
+          <text fg={C.dimmer}>
+            DOCTOR{" "}
             {doctor.latest
               ? `${doctor.latest.ok} ok · ${doctor.latest.info} info · ${doctor.latest.warn} warn · ${doctor.latest.error} error`
-              : "…"}
+              : "running…"}
           </text>
         </box>
-        <box height={1} />
-        {(doctor.latest?.diagnostics ?? [])
-          .filter((d) => d.level !== "ok")
-          .map((d) => (
+        <Show
+          when={issues().length}
+          fallback={
+            <Show when={doctor.latest} fallback={<text fg={C.dimmer}> running…</text>}>
+              <EmptyState glyph="✓" title="all clear" hint="nothing to report" />
+            </Show>
+          }
+        >
+          {issues().map((d) => (
             <box flexDirection="column">
               <box flexDirection="row" height={1}>
-                <box width={7}>
-                  <text fg={color(d.level)}>{d.level === "error" ? "✗" : d.level === "warn" ? "⚠" : "•"}</text>
+                <box width={8}>
+                  <text fg={color(d.level)}>{d.level === "error" ? "✗" : d.level === "warn" ? "▲" : "·"}</text>
                   <text fg={C.dimmer} wrapMode="none">
                     {` ${d.area}`}
                   </text>
@@ -101,36 +80,42 @@ export function HealthView(): unknown {
               </box>
               {d.hint ? (
                 <box flexDirection="row" height={1}>
-                  <box width={9} />
+                  <box width={10} />
                   <text fg={C.dimmer} wrapMode="none">
-                    {`↳ ${d.hint.slice(0, 68)}`}
+                    {`↳ ${d.hint.slice(0, 66)}`}
                   </text>
                 </box>
               ) : null}
             </box>
           ))}
-        {(doctor.latest?.diagnostics ?? []).every((d) => d.level === "ok") && doctor.latest ? (
-          <text fg={C.green}>all clear — nothing to report</text>
-        ) : null}
+        </Show>
       </box>
-      <box flexGrow={2} flexDirection="column" borderStyle="single" borderColor={C.border} padding={1}>
-        <text fg={C.accent}>MAINTENANCE</text>
-        <box height={1} />
-        <text fg={C.fg}>f — repair integrations</text>
-        <text fg={C.dim}>  exec bits, desktop entries, icons, markers</text>
-        <box height={1} />
-        <text fg={C.fg}>n — clean leftovers</text>
-        <text fg={C.dim}>  previews first, removes only owned files</text>
-        <box height={1} />
-        <text fg={C.fg}>s — scan system</text>
-        <text fg={C.dim}>  AppImages, entries, icons, duplicates</text>
-        <box height={1} />
-        <text fg={C.fg}>i — import found AppImages</text>
-        <text fg={C.dim}>  adopts from configured collection dirs</text>
-        <box flexGrow={1} />
-        <text fg={C.dimmer}>destructive actions always confirm first</text>
-        <box height={1} />
-        <text fg={C.dimmer}>5 — activity view for the full log</text>
+      <box height={3} flexDirection="row" borderStyle="single" borderColor={C.border} alignItems="center" paddingX={1}>
+        <Button label="Fix" onClick={() => void fixAll()} />
+        <box width={1} />
+        <Button label="Scan" onClick={() => void scanSystem()} />
+        <box width={1} />
+        <Button
+          label="Clean"
+          onClick={() =>
+            confirm(
+              "Remove leftovers?",
+              "Partial downloads, old backups, stale entries and unreferenced icons.",
+              () => void cleanSystem(),
+            )
+          }
+        />
+        <box width={1} />
+        <Button
+          label="Import"
+          onClick={() =>
+            confirm(
+              "Import AppImages from collection dirs?",
+              "Adopts everything found without asking.",
+              () => void importApps(),
+            )
+          }
+        />
       </box>
     </box>
   )

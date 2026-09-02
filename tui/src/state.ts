@@ -3,7 +3,7 @@
 import { createSignal } from "solid-js"
 import { RpcClient, type LogEvent } from "./rpc"
 
-export type ViewId = "dashboard" | "apps" | "updates" | "health" | "activity" | "settings"
+export type ViewId = "apps" | "updates" | "health" | "activity" | "settings"
 
 export interface AppRow {
   alias: string
@@ -40,12 +40,13 @@ export interface Toast {
 }
 
 export interface Overlay {
-  kind: "palette" | "help"
+  kind: "menu" | "help"
 }
 
 export interface ConfirmRequest {
   title: string
   detail?: string
+  danger?: boolean
   action: () => Promise<void> | void
 }
 
@@ -56,7 +57,7 @@ export const [apps, setApps] = createSignal<AppRow[]>([])
 export const [health, setHealth] = createSignal<Record<string, unknown> | null>(null)
 export const [logs, setLogs] = createSignal<LogEvent[]>([])
 export const [busyText, setBusyText] = createSignal<string | null>(null)
-export const [view, setView] = createSignal<ViewId>("dashboard")
+export const [view, setView] = createSignal<ViewId>("apps")
 export const [focusMode, setFocusMode] = createSignal<"nav" | "input">("nav")
 export const [overlay, setOverlay] = createSignal<Overlay | null>(null)
 export const [confirmReq, setConfirmReq] = createSignal<ConfirmRequest | null>(null)
@@ -76,7 +77,8 @@ export function toast(level: Toast["level"], message: string): void {
 }
 
 export function pushLog(level: string, message: string, alias?: string | null): void {
-  setLogs((l) => [...l.slice(-499), { level, message, alias }])
+  const time = new Date().toISOString().slice(11, 19)
+  setLogs((l) => [...l.slice(-499), { time, level, message, alias }])
 }
 
 export async function withBusy<T>(label: string, fn: () => Promise<T>): Promise<T | null> {
@@ -186,12 +188,11 @@ export function startSpinner(): void {
 }
 
 export const views: { id: ViewId; label: string; key: string }[] = [
-  { id: "dashboard", label: "Dashboard", key: "1" },
-  { id: "apps", label: "Apps", key: "2" },
-  { id: "updates", label: "Updates", key: "3" },
-  { id: "health", label: "Health", key: "4" },
-  { id: "activity", label: "Activity", key: "5" },
-  { id: "settings", label: "Settings", key: "6" },
+  { id: "apps", label: "apps", key: "1" },
+  { id: "updates", label: "updates", key: "2" },
+  { id: "health", label: "health", key: "3" },
+  { id: "activity", label: "activity", key: "4" },
+  { id: "settings", label: "settings", key: "5" },
 ]
 
 export function appsWithUpdates(): AppRow[] {

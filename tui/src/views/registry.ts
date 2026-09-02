@@ -1,16 +1,29 @@
-// Views register a controller so the single global key handler can route
-// j/k/enter/etc. to whichever view is active. One keyboard owner at a time.
+// Views register a controller so the shell can route navigation and render
+// contextual status-bar hints. Actions live in the menu and on buttons -
+// not on hidden per-view letter keys.
 
 import type { ViewId } from "../state"
 
+export interface ViewHint {
+  /** Key shown in the hint chip, e.g. "enter" or "/". */
+  key?: string
+  label: string
+  /** Optional action - makes the hint clickable in the status bar. */
+  run?: () => void
+}
+
 export interface ViewController {
   id: ViewId
-  move(dir: 1 | -1): void
+  /** Move the row cursor (j/k, up/down, wheel). */
+  move(dir: 1 | -1, steps?: number): void
+  /** Jump to first/last row (g/G). */
   jump(first: boolean): void
+  /** Primary action for the current row (enter). */
   primary(): void
-  /** Return true when the key was consumed. */
-  key(name: string, shift: boolean): boolean
-  hints(): string[]
+  /** Contextual hints for the status bar. */
+  hints(): ViewHint[]
+  /** Open the list filter (the "/" key). Views without lists ignore it. */
+  startFilter?(): void
 }
 
 const controllers = new Map<ViewId, ViewController>()

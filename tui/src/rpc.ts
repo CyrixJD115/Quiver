@@ -5,6 +5,7 @@
 import { spawn } from "child_process"
 
 export interface LogEvent {
+  time: string
   level: string
   message: string
   alias?: string | null

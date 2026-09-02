@@ -1,6 +1,6 @@
 [project]
 name = "quiver-appimage-manager"
-version = "0.3.0"
+version = "0.3.1"
 description = "quiver - AppImage manager: CLI + interactive OpenTUI console (Linux TUI), upstream updates, desktop integration"
 readme = "README.md"
 requires-python = ">=3.11"

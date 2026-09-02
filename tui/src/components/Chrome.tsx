@@ -1,116 +1,98 @@
-// App chrome: header bar, sidebar navigation, status bar.
+// App chrome: title bar with view tabs (top) and contextual status bar
+// (bottom). Everything is clickable; five tabs carry the whole hierarchy.
 
-import { createMemo, For } from "solid-js"
-import { getController } from "../views/registry"
+import { createMemo, createSignal, For } from "solid-js"
 import {
-  apps,
   appsWithUpdates,
   busyText,
   connected,
   coreInfo,
   doctorCounts,
-  focusMode,
   overlay,
-  selectedAlias,
+  setView,
   tick,
   view,
   views,
 } from "../state"
-import { C, GLYPH } from "../theme"
+import { C } from "../theme"
+import { getController, type ViewHint } from "../views/registry"
+import { Clickable, Hint, Span } from "./ui"
 
 const SPINNER = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 
-export function Header(): unknown {
-  const info = createMemo(coreInfo)
+export function TitleBar(): unknown {
   const updates = createMemo(() => appsWithUpdates().length)
-  const counts = createMemo(doctorCounts)
+  const problems = createMemo(() => {
+    const c = doctorCounts()
+    return c.error + c.warn
+  })
   return (
-    <box width="100%" height={1} backgroundColor={C.panelAlt} flexDirection="row" paddingX={1}>
-      <text fg={C.accent} wrapMode="none">
-        ⚡ QUIVER
-      </text>
-      <text fg={C.dimmer}> {info() ? `v${info()!.version}` : ""} </text>
-      <box flexGrow={1} />
-      <text fg={updates() ? C.yellow : C.dim} wrapMode="none">
-        {apps().length} apps{updates() ? ` · ${updates()} update${updates() > 1 ? "s" : ""}` : ""}
-        {counts().error ? ` · ${counts().error} error${counts().error > 1 ? "s" : ""}` : ""}
-        {counts().warn && !counts().error ? ` · ${counts().warn} warn` : ""}
-      </text>
-    </box>
-  )
-}
-
-export function Sidebar(): unknown {
-  const updates = createMemo(() => appsWithUpdates().length)
-  const counts = createMemo(doctorCounts)
-  return (
-    <box
-      width={20}
-      height="100%"
-      flexDirection="column"
-      borderStyle="single"
-      borderColor={C.border}
-      backgroundColor={C.panel}
-    >
+    <box width="100%" height={1} backgroundColor={C.panel} flexDirection="row" alignItems="center">
+      <box width={1} />
+      <text fg={C.green}>quiver</text>
+      <text fg={C.dimmer}> {coreInfo() ? `v${coreInfo()!.version}` : ""} </text>
       <For each={views}>
         {(v) => {
-          const active = v.id === view()
-          const badge =
+          const badge = () =>
             v.id === "updates" && updates()
-              ? updates().toString()
-              : v.id === "health" && counts().error + counts().warn
-                ? (counts().error + counts().warn).toString()
+              ? ` ${updates()}`
+              : v.id === "health" && problems()
+                ? ` ${problems()}`
                 : ""
-          return (
-            <box flexDirection="row" height={1} backgroundColor={active ? C.selectedAccent : undefined}>
-              <text fg={active ? C.accent : C.dimmer}> {v.key} </text>
-              <text fg={active ? C.fg : C.dim} wrapMode="none">
-                {v.label}
-              </text>
-              <box flexGrow={1} />
-              {badge ? <text fg={v.id === "updates" ? C.yellow : C.red}>{badge} </text> : null}
-            </box>
-          )
+          return <TabButton active={v.id === view()} label={`${v.key} ${v.label}${badge()}`} id={v.id} />
         }}
       </For>
-      <box height={1} />
-      <box flexDirection="row" height={1}>
-        <text fg={C.dimmer}> {GLYPH.pointer} </text>
-        <text fg={C.dim} wrapMode="none">
-          {selectedAlias() ? selectedAlias()!.slice(0, 14) : "—"}
-        </text>
-      </box>
       <box flexGrow={1} />
-      <box height={1} paddingX={1}>
-        <text fg={C.dimmer} wrapMode="none">
-          {focusMode() === "input" ? "TEXT INPUT" : connected() ? "backend ok" : "no backend"}
-        </text>
-      </box>
-    </box>
-  )
-}
-
-export function StatusBar(): unknown {
-  return (
-    <box width="100%" height={1} backgroundColor={C.panelAlt} flexDirection="row" paddingX={1}>
-      <text fg={C.dim} wrapMode="none">
-        {statusHints().join("   ")}
-      </text>
-      <box flexGrow={1} />
+      {updates() ? (
+        <text fg={C.amber}>↑{updates()} update{updates() > 1 ? "s" : ""} </text>
+      ) : null}
       {busyText() ? (
-        <text fg={C.accent} wrapMode="none">
-          {SPINNER[tick() % SPINNER.length]} {busyText()}
-        </text>
+        <text fg={C.green}>{SPINNER[tick() % SPINNER.length]} {busyText()}</text>
       ) : (
-        <text fg={connected() ? C.green : C.red} wrapMode="none">
-          {connected() ? "ready" : "disconnected"}
-        </text>
+        <text fg={connected() ? C.dimmer : C.red}>{connected() ? "connected" : "offline"}</text>
       )}
-      {overlay() ? <text fg={C.mauve}> esc</text> : null}
+      <box width={1} />
     </box>
   )
 }
 
-function statusHints(): string[] {
-  return getController(view())?.hints() ?? [": palette", "? help"]
+function TabButton(props: { active: boolean; label: string; id: string }): unknown {
+  const [hover, setHover] = createSignal(false)
+  return (
+    <Clickable onClick={() => setView(props.id as never)}>
+      <box
+        onMouseOver={() => setHover(true)}
+        onMouseOut={() => setHover(false)}
+        height={1}
+        backgroundColor={props.active ? C.greenDeep : hover() ? C.hover : undefined}
+        alignItems="center"
+      >
+        <text>
+          <Span fg={props.active ? C.greenBright : C.border}>▎</Span>
+          <Span fg={props.active ? C.green : hover() ? C.fg : C.dim}>{props.label} </Span>
+        </text>
+      </box>
+    </Clickable>
+  )
+}
+
+export function StatusBar(props: { onMenu: () => void; onHelp: () => void; onQuit: () => void }): unknown {
+  const hints = createMemo(() => getController(view())?.hints() ?? [])
+  const cycle = () => {
+    const idx = views.findIndex((v) => v.id === view())
+    setView(views[(idx + 1) % views.length].id)
+  }
+  return (
+    <box width="100%" height={1} backgroundColor={C.panel} flexDirection="row" alignItems="center">
+      <box width={1} />
+      <Hint key="tab" label="views" onClick={cycle} />
+      <For each={hints()}>{(h) => <Hint key={h.key} label={h.label} onClick={h.run} />}</For>
+      <Hint key=":" label="menu" onClick={props.onMenu} />
+      <Hint key="?" label="help" onClick={props.onHelp} />
+      <box flexGrow={1} />
+      {overlay() ? <text fg={C.dimmer}>esc back  </text> : null}
+      <Hint key="q" label="quit" onClick={props.onQuit} />
+      <box width={1} />
+    </box>
+  )
 }
