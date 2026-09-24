@@ -1,8 +1,12 @@
+from __future__ import annotations
+
 from pathlib import Path
 
-from quiver import desktop, maintenance
-from quiver.appimage import AppImageMeta
-from quiver.registry import AppEntry
+from quiver.core import maintenance
+from quiver.core.appimage import AppImageMeta
+from quiver.core.registry import AppEntry
+from quiver.util import desktop
+
 from tests.conftest import make_appimage
 
 
@@ -246,8 +250,9 @@ def test_repair_fixes_exec_bit_and_entry(cfg, registry, tmp_path):
 
 
 def _managed_with_original(registry, cfg, tmp_path, original_dir):
-    from quiver import appimage
-    from quiver.registry import AppEntry as E
+    from quiver.core import appimage
+    from quiver.core.registry import AppEntry as E
+
     from tests.conftest import make_appimage as mk
 
     original = mk(original_dir / "Orig-1.0-x86_64.AppImage")
@@ -275,7 +280,8 @@ def test_plan_clean_offers_imported_originals(cfg, registry, tmp_path, xdg):
 
 
 def test_plan_clean_skips_in_place_imports(cfg, registry, tmp_path, xdg):
-    from quiver.registry import AppEntry as E
+    from quiver.core.registry import AppEntry as E
+
     from tests.conftest import make_appimage as mk
 
     same = mk(xdg.home / "Applications" / "Same-1.0.AppImage")
@@ -393,7 +399,7 @@ def test_doctor_and_repair_restore_stripped_entry(cfg, registry, xdg, tmp_path):
 
 
 def _registered(registry, cfg, *, alias="app", filename="App-1.0-x86_64.AppImage"):
-    from quiver import appimage as ai
+    from quiver.core import appimage as ai
 
     path = make_appimage(cfg.storage_dir / filename)
     entry = AppEntry(
@@ -420,7 +426,7 @@ def test_refresh_syncs_self_updated_file(cfg, registry, tmp_path, monkeypatch):
     assert [r["alias"] for r in report.refreshed] == ["app"]
     updated = registry.get("app")
     assert updated.version == "2.0"
-    from quiver import appimage as ai
+    from quiver.core import appimage as ai
 
     assert updated.sha256 == ai.sha256_of(path)
     assert updated.size == path.stat().st_size

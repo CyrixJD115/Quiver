@@ -1,9 +1,9 @@
 import httpx
 import pytest
-
+from quiver.core.registry import AppEntry
 from quiver.providers.base import ProviderError
 from quiver.providers.github import GitHubProvider
-from quiver.registry import AppEntry
+
 from tests.conftest import make_appimage
 
 

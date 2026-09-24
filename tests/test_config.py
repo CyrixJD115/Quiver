@@ -1,7 +1,6 @@
 import pytest
-
-from quiver.config import Config
-from quiver.errors import UsageError
+from quiver.util.config import Config
+from quiver.util.errors import UsageError
 
 
 def test_defaults(cfg):

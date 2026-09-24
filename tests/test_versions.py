@@ -1,4 +1,4 @@
-from quiver.versions import compare, is_newer, normalize
+from quiver.util.versions import compare, is_newer, normalize
 
 
 def test_normalize_strips_v():

@@ -3,22 +3,7 @@
 `quiver` installs, registers, updates, launches and cleans up AppImages on Linux.
 It is a real package-manager-style utility — a registry of *managed* apps,
 pluggable upstream update providers, safe atomic updates with rollback, and
-XDG-correct desktop integration — with two frontends over the same backend:
-a scriptable **CLI** and an interactive **OpenTUI console** (`quiver run`).
-
-```
-$ quiver
- ⚡ QUIVER v0.3.0                                            5 apps
-┌──────────────────┐┌────────────────────────────────────────────────────────────┐
-│ 1 Dashboard      ││ APPS                                                       │
-│ 2 Apps           ││   ALIAS       VERSION ARCH  SIZE  SRC      STATUS  CHECKED │
-│ 3 Updates        ││ ❯ iloader     ?       x86_64 85.3M github  unknown 09-01   │
-│ 4 Health         ││   plume-impactor 2.6.0 x86_64 17.5M github  ok      08-31   │
-│ 5 Activity       ││   toolcoin    1.5.0   x86_64 22.4M -        no src  08-31   │
-│ 6 Settings       ││   zcode       3.10.2… x86_64 190M  -        no src  08-31   │
-└──────────────────┘└────────────────────────────────────────────────────────────┘
- : palette   ? help                                                       ready
-```
+XDG-correct desktop integration.
 
 ## Safety model (read this first)
 
@@ -49,20 +34,12 @@ cd Quiver
 uv tool install .
 ```
 
-The wheel bundles the prebuilt TUI binary. To rebuild it you need
-[Bun](https://bun.sh) ≥ 1.3:
-
-```bash
-scripts/build-tui.sh && uv tool install . --reinstall --force
-```
-
 Data lives in `~/.config/quiver/`, `~/.local/share/quiver/`,
 `~/.local/state/quiver/` and `~/.cache/quiver/` (see `quiver config path`).
 
 ## Quick start
 
 ```bash
-quiver                       # interactive TUI (or `quiver run`)
 quiver import                # adopt the AppImages in your collection dirs
 quiver source detect --all   # figure out where updates come from
 quiver check                 # any updates available? (one app or all)
@@ -73,12 +50,10 @@ quiver doctor                # health report
 
 ## CLI reference
 
-Bare `quiver` opens the TUI when stdin/stdout are an interactive Linux
-terminal; otherwise it prints a hint. Every command accepts `--json`.
+Every command accepts `--json`.
 
 | Command | What it does |
 | --- | --- |
-| `quiver run` | launch the interactive TUI (Linux) |
 | `quiver add <path> [--alias a] [--source github:o/r]` | register an AppImage (copies into storage) |
 | `quiver rm <alias> [--purge]` | unregister (+ optional file delete) |
 | `quiver ls [--source-only]` | managed apps, versions, sources |
@@ -102,46 +77,11 @@ terminal; otherwise it prints a hint. Every command accepts `--json`.
 Old names (`list`, `remove`, `check-all`, `update-all`, `detect-source`,
 `import-existing`, `repair`, `set`) still work as hidden aliases.
 
-## The interactive console (Linux)
-
-`quiver run` is a real console application with a small, calm interaction
-model — a title bar of tabs, a contextual status bar, and one command menu
-that holds every action. Nothing hides behind undocumented keys.
-
-**Keyboard** (the complete list):
-
-| key | action |
-| --- | --- |
-| `tab` / `1`-`5` | switch views (click the tabs too) |
-| `j` `k` `↑` `↓` `PgUp` `PgDn` / wheel | move selection |
-| `g` / `G` | first / last row |
-| `enter` | primary action (launch · update · edit — contextual) |
-| `/` | filter the current list |
-| `:` | command menu — every action, grouped and filterable |
-| `?` | help |
-| `r` | reload data |
-| `esc` / `q` | close dialog / quit |
-
-**Mouse is first-class**: tabs, rows, buttons, menu items and even the status
-hints are clickable; hover highlights; the wheel scrolls lists and the
-activity log. Clicking a row only selects it — destructive actions always go
-through an explicit confirm dialog.
-
-**Views**: `apps` (list + detail pane with Launch / Update / Check / Source /
-Rollback / Refresh / Remove buttons), `updates` (statuses sorted, Check-all /
-Update-all), `health` (doctor output + Fix / Scan / Clean / Import),
-`activity` (live backend event log), `settings` (click any config row to edit
-in place, paths, systemd timer).
-
-The theme is midnight-forest: deep charcoal-green surfaces, restrained
-borders, one calm green accent — inspired by btop's furarchy-midnight.
-The TUI is intentionally **Linux-only**; the CLI and backend remain portable.
-
 ## Architecture
 
 ```
         ┌─────────────┐
-        │  quiver CLI │  Typer + Rich           presentation #1
+        │  quiver CLI │  Typer + Rich
         └──────┬──────┘
                ▼
         ┌─────────────┐
@@ -150,32 +90,16 @@ The TUI is intentionally **Linux-only**; the CLI and backend remain portable.
         │  updater    │  providers: GitHub, GitLab, Codeberg, URL, command
         │  desktop    │  XDG integration with ownership markers
         │ maintenance │  scan / doctor / clean / fix / import / refresh
-        └──────┬──────┘
-               │ `quiver api` — JSON-RPC 2.0 over ndjson stdio
-               ▼
-        ┌─────────────┐
-        │  OpenTUI    │  Solid signals + OpenTUI renderables
-        │  quiver-tui │  compiled with Bun into one Linux binary
-        └─────────────┘  presentation #2 — zero business logic
+        └─────────────┘
 ```
-
-Both frontends call the same Python services; the TUI spawns `quiver api` as a
-child process and speaks newline-delimited JSON-RPC (mutations serialize,
-long operations stream `log` notifications, state changes trigger refreshes).
-Business logic is never duplicated.
 
 ## Development
 
 ```bash
 uv sync                       # python deps
-uv run pytest                 # 170 backend/CLI/API tests
+uv run pytest                 # backend/CLI tests
 uv run ruff check src tests && uv run ruff format --check src tests
 uv run mypy src
-
-cd tui && bun install
-bunx tsc --noEmit             # TUI types
-bun test                      # in-memory render tests
-bun run dev                   # run the TUI from source
 ```
 
 ## License

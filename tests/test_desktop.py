@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from quiver import desktop
-from quiver.registry import AppEntry
+from quiver.core.registry import AppEntry
+from quiver.util import desktop
 
 
 def make_entry(**kwargs):
@@ -159,7 +159,7 @@ def test_legacy_marker_still_recognized_as_ours(tmp_path):
 
 def test_adopt_entry_is_idempotent_and_keeps_exactly_one_marker_pair(cfg, xdg):
     """Re-adopting an already-adopted file must never drop its markers."""
-    from quiver.registry import AppEntry as E
+    from quiver.core.registry import AppEntry as E
 
     entry_file = desktop.desktop_dir() / "app.desktop"
     entry_file.parent.mkdir(parents=True, exist_ok=True)

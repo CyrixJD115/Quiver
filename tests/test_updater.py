@@ -7,12 +7,12 @@ from pathlib import Path
 
 import httpx
 import pytest
-
-from quiver import updater
-from quiver.appimage import sha256_of
+from quiver.core import updater
+from quiver.core.appimage import sha256_of
+from quiver.core.registry import AppEntry
+from quiver.core.updater import perform_update, rollback
 from quiver.providers.base import Asset, ProviderError, Release, UpdateProvider, register
-from quiver.registry import AppEntry
-from quiver.updater import perform_update, rollback
+
 from tests.conftest import make_appimage
 
 

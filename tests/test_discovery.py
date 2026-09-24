@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import httpx
+from quiver.core.discovery import discover_candidates
+from quiver.core.registry import AppEntry
 
-from quiver.discovery import discover_candidates
-from quiver.registry import AppEntry
 from tests.conftest import make_appimage
 
 LATEST_GOOD = {

@@ -15,7 +15,7 @@ MACHINES = {"i386": 3, "x86_64": 62, "arm": 40, "aarch64": 183, "riscv64": 243}
 @pytest.fixture(autouse=True)
 def _no_desktop_cache(monkeypatch):
     """Never shell out to update-desktop-database during tests."""
-    import quiver.desktop as desktop_mod
+    import quiver.util.desktop as desktop_mod
 
     monkeypatch.setattr(desktop_mod.shutil, "which", lambda _: None)
 
@@ -42,7 +42,7 @@ def xdg(tmp_path, monkeypatch):
 
 @pytest.fixture
 def cfg(xdg):
-    from quiver.config import Config
+    from quiver.util.config import Config
 
     conf = Config.load()
     conf.ensure_dirs()
@@ -51,7 +51,7 @@ def cfg(xdg):
 
 @pytest.fixture
 def registry(xdg):
-    from quiver.registry import Registry
+    from quiver.core.registry import Registry
 
     return Registry()
 

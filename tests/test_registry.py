@@ -1,7 +1,6 @@
 import pytest
-
-from quiver.errors import AimError
-from quiver.registry import AppEntry
+from quiver.core.registry import AppEntry
+from quiver.util.errors import AimError
 
 
 def make_entry(alias="foo", **kwargs):
@@ -35,7 +34,7 @@ def test_duplicate_alias_rejected(registry):
 
 
 def test_require_missing_raises(registry):
-    from quiver.errors import NotFoundError
+    from quiver.util.errors import NotFoundError
 
     with pytest.raises(NotFoundError):
         registry.require("ghost")

@@ -8,11 +8,11 @@ from pathlib import Path
 
 import httpx
 import pytest
+from quiver.cli import app
+from quiver.core import appimage
+from quiver.core.appimage import AppImageMeta
 from typer.testing import CliRunner
 
-from quiver import appimage
-from quiver.appimage import AppImageMeta
-from quiver.cli import app
 from tests.conftest import make_appimage
 
 runner = CliRunner()
@@ -50,7 +50,6 @@ def test_help_lists_commands():
     result = runner.invoke(app, ["--help"])
     assert result.exit_code == 0
     for cmd in (
-        "run",
         "add",
         "rm",
         "ls",
@@ -98,15 +97,6 @@ def test_check_without_alias_checks_all(tmp_path):
     assert isinstance(data, list) and data[0]["alias"] == "fake-app"
 
 
-def test_run_requires_linux_tui_or_errors():
-    from quiver import tui as tui_mod
-
-    result = runner.invoke(app, ["run"])
-    # On Linux without a bundled binary: clean error; elsewhere: Linux-only note.
-    assert result.exit_code != 0
-    assert tui_mod.tui_binary_path() is None or "TUI" in result.output
-
-
 def test_add_list_info_flow(tmp_path):
     appfile = make_appimage(tmp_path / "dl" / "Fake-1.0.0-x86_64.AppImage")
     result = runner.invoke(app, ["add", str(appfile), "--yes"])
@@ -125,7 +115,7 @@ def test_add_list_info_flow(tmp_path):
     data = json.loads(info.output)
     assert data["source_opts"]["github_hints"] == ["some/dev"]
     # desktop entry was created and marked as ours
-    from quiver import paths
+    from quiver.util import paths
 
     entry_file = paths.desktop_entries_dir() / data["desktop_file"]
     assert entry_file.exists()
@@ -197,9 +187,9 @@ def test_check_unknown_alias():
 
 
 def test_update_end_to_end(tmp_path, monkeypatch):
-    from quiver import download as download_mod
     from quiver.providers import base
     from quiver.providers.base import Asset, Release, UpdateProvider, register
+    from quiver.util import download as download_mod
 
     new_file = make_appimage(tmp_path / "new.AppImage", payload=b"v2-payload-")
     new_bytes = new_file.read_bytes()
@@ -281,7 +271,7 @@ def test_doctor_clean_exit_when_empty():
 
 
 def test_clean_dry_run_leaves_files(tmp_path):
-    from quiver.config import Config
+    from quiver.util.config import Config
 
     cfg = Config.load()
     cfg.ensure_dirs()
@@ -356,7 +346,7 @@ def test_launch_detaches_output_to_log(monkeypatch, tmp_path, xdg):
     assert kwargs["stdin"] == subprocess_mod.DEVNULL
     assert kwargs["stderr"] == subprocess_mod.STDOUT
     assert kwargs["stdout"] is not None  # a log file handle, not the terminal
-    from quiver import paths
+    from quiver.util import paths
 
     log = paths.app_state_dir() / "logs" / "fake-app.log"
     assert log.exists()

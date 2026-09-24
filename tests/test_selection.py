@@ -67,7 +67,6 @@ def test_normalize_github_repo():
     assert normalize_github_repo("https://github.com/owner/repo/") == "owner/repo"
     assert normalize_github_repo("https://github.com/owner/repo.git") == "owner/repo"
     import pytest
-
     from quiver.providers.base import ProviderError
 
     with pytest.raises(ProviderError):

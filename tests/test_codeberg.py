@@ -4,10 +4,9 @@ from __future__ import annotations
 
 import httpx
 import pytest
-
+from quiver.core.registry import AppEntry
 from quiver.providers.base import ProviderError
 from quiver.providers.codeberg import CodebergProvider, normalize_forge_repo
-from quiver.registry import AppEntry
 
 RELEASES = [
     {

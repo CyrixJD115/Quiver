@@ -1,6 +1,7 @@
 import hashlib
 
-from quiver import appimage
+from quiver.core import appimage
+
 from tests.conftest import make_appimage
 
 
@@ -82,8 +83,7 @@ def test_verify_appimage_rejects_garbage(tmp_path):
     bad = tmp_path / "bad.AppImage"
     bad.write_bytes(b"definitely not an elf")
     import pytest
-
-    from quiver.errors import VerificationError
+    from quiver.util.errors import VerificationError
 
     with pytest.raises(VerificationError):
         appimage.verify_appimage(bad, "x86_64")
@@ -91,8 +91,7 @@ def test_verify_appimage_rejects_garbage(tmp_path):
 
 def test_verify_appimage_arch_mismatch(fake_appimage, tmp_path):
     import pytest
-
-    from quiver.errors import VerificationError
+    from quiver.util.errors import VerificationError
 
     arm = fake_appimage(tmp_path / "arm.AppImage", arch="aarch64")
     with pytest.raises(VerificationError, match="architecture"):
@@ -104,7 +103,7 @@ def test_verify_appimage_arch_mismatch(fake_appimage, tmp_path):
 
 def test_extract_metadata_stashes_icon_outside_tmp(fake_appimage, xdg, monkeypatch, tmp_path):
     """The icon must survive the temp extraction dir being deleted."""
-    from quiver import appimage as mod
+    from quiver.core import appimage as mod
 
     def fake_run(appimage, tmp, timeout):
         root = tmp / "squashfs-root"
@@ -137,7 +136,7 @@ def test_read_update_info_from_elf_section(tmp_path):
         tmp_path / "wb.AppImage",
         "gh-releases-zsync|winboat-org|winboat|latest|winboat-x86_64.AppImage",
     )
-    from quiver import appimage as mod
+    from quiver.core import appimage as mod
 
     assert mod.read_update_info(path) == (
         "gh-releases-zsync|winboat-org|winboat|latest|winboat-x86_64.AppImage"
@@ -145,7 +144,7 @@ def test_read_update_info_from_elf_section(tmp_path):
 
 
 def test_parse_update_info_variants():
-    from quiver.appimage import parse_update_info
+    from quiver.core.appimage import parse_update_info
 
     assert parse_update_info("gh-releases-zsync|owner|repo|latest|x.AppImage") == ["owner/repo"]
     assert parse_update_info("gh-releases|owner|repo|v1|x") == ["owner/repo"]
@@ -157,7 +156,7 @@ def test_parse_update_info_variants():
 
 
 def test_github_repo_from_app_id():
-    from quiver.appimage import github_repo_from_app_id
+    from quiver.core.appimage import github_repo_from_app_id
 
     assert github_repo_from_app_id("io.github.bluemancz.hyprmod") == "bluemancz/hyprmod"
     assert github_repo_from_app_id("com.github.example.someapp") == "example/someapp"
@@ -167,7 +166,8 @@ def test_github_repo_from_app_id():
 
 
 def test_extract_metadata_uses_updinfo_without_extraction(tmp_path):
-    from quiver import appimage as mod
+    from quiver.core import appimage as mod
+
     from tests.conftest import make_updinfo_appimage
 
     path = make_updinfo_appimage(
